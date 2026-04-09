@@ -50,11 +50,18 @@
   <!-- Add / Edit Modal -->
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-overlay"></div>
-    <div class="modal-content">
+    <div class="modal-content" id="modalContent">
       <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
       <h2 id="modalTitle">Add New Book</h2>
       <form id="bookForm" novalidate>
         <input type="hidden" id="bookId" />
+        <div id="detailsHero" class="details-hero hidden">
+          <img id="detailsCover" class="details-cover" src="" alt="Book cover" />
+          <div class="details-meta">
+            <span id="detailsAvailability" class="details-availability"></span>
+            <p class="details-note">Read-only details view</p>
+          </div>
+        </div>
         <div class="form-group">
           <label for="fTitle">Title *</label>
           <input type="text" id="fTitle" required />
@@ -79,11 +86,11 @@
           <label for="fDescription">Description</label>
           <textarea id="fDescription" rows="3"></textarea>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="coverUrlGroup">
           <label for="fCoverImage">Cover Image URL</label>
           <input type="url" id="fCoverImage" placeholder="https://example.com/cover.jpg" />
         </div>
-        <div class="form-group">
+        <div class="form-group" id="coverFileGroup">
           <label for="fCoverFile">Upload Cover Image</label>
           <input type="file" id="fCoverFile" accept="image/*" />
         </div>

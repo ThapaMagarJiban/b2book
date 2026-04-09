@@ -18,16 +18,22 @@ const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
 
 // Add/Edit modal
 const modal        = document.getElementById('modal');
+const modalContent = document.getElementById('modalContent');
 const modalClose   = document.getElementById('modalClose');
 const modalTitle   = document.getElementById('modalTitle');
 const bookForm     = document.getElementById('bookForm');
 const bookIdField  = document.getElementById('bookId');
+const detailsHero  = document.getElementById('detailsHero');
+const detailsCover = document.getElementById('detailsCover');
+const detailsAvailability = document.getElementById('detailsAvailability');
 const fTitle       = document.getElementById('fTitle');
 const fAuthor      = document.getElementById('fAuthor');
 const fGenre       = document.getElementById('fGenre');
 const fYear        = document.getElementById('fYear');
 const fIsbn        = document.getElementById('fIsbn');
 const fDesc        = document.getElementById('fDescription');
+const coverUrlGroup = document.getElementById('coverUrlGroup');
+const coverFileGroup = document.getElementById('coverFileGroup');
 const fCoverImage  = document.getElementById('fCoverImage');
 const fCoverFile   = document.getElementById('fCoverFile');
 const fAvail       = document.getElementById('fAvailable');
@@ -237,6 +243,7 @@ function openAddModal() {
   modalTitle.textContent = 'Add New Book';
   bookForm.reset();
   bookIdField.value = '';
+  setModalMode('form');
   setFormReadOnly(false);
   saveBtn.classList.remove('hidden');
   openModal(modal);
@@ -256,6 +263,7 @@ async function openEditModal(id) {
     fCoverImage.value = data.cover_image || '';
     fCoverFile.value = '';
     fAvail.value  = String(data.available);
+    setModalMode('form');
     setFormReadOnly(false);
     saveBtn.classList.remove('hidden');
     openModal(modal);
@@ -278,6 +286,7 @@ async function openViewModal(id) {
     fCoverImage.value = data.cover_image || '';
     fCoverFile.value = '';
     fAvail.value = String(data.available);
+    setModalMode('details', data);
     setFormReadOnly(true);
     saveBtn.classList.add('hidden');
     openModal(modal);
@@ -368,9 +377,26 @@ function openModal(m) { m.classList.remove('hidden'); }
 function closeModal(m) {
   m.classList.add('hidden');
   if (m === modal) {
+    setModalMode('form');
     setFormReadOnly(false);
     saveBtn.classList.remove('hidden');
   }
+}
+
+function setModalMode(mode, book = null) {
+  const isDetailsMode = mode === 'details';
+  modalContent.classList.toggle('details-mode', isDetailsMode);
+  detailsHero.classList.toggle('hidden', !isDetailsMode);
+  coverUrlGroup.classList.toggle('hidden', isDetailsMode);
+  coverFileGroup.classList.toggle('hidden', isDetailsMode);
+
+  if (!isDetailsMode || !book) return;
+
+  const available = Number(book.available) === 1;
+  detailsCover.src = bookCoverUrl(book);
+  detailsCover.alt = `Cover of ${book.title}`;
+  detailsAvailability.textContent = available ? '✅ Available' : '❌ Not Available';
+  detailsAvailability.className = `details-availability ${available ? 'available' : 'unavailable'}`;
 }
 
 function setFormReadOnly(isReadOnly) {
