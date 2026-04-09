@@ -14,6 +14,7 @@ const addBookBtn   = document.getElementById('addBookBtn');
 const statusMsg    = document.getElementById('statusMsg');
 const BOOK_COVER_FALLBACK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="72" height="104" viewBox="0 0 72 104"><rect width="72" height="104" rx="8" fill="#f0f4f8"/><rect x="8" y="12" width="56" height="80" rx="4" fill="#e2e8f0"/><text x="36" y="56" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#4a5568">No Cover</text></svg>';
 const BOOK_COVER_FALLBACK = `data:image/svg+xml,${encodeURIComponent(BOOK_COVER_FALLBACK_SVG)}`;
+const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
 
 // Add/Edit modal
 const modal        = document.getElementById('modal');
@@ -173,7 +174,10 @@ function bookCoverUrl(book) {
 function sanitizeCoverImage(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
-  if (raw.startsWith('data:image/')) return raw;
+  if (raw.startsWith('data:image/')) {
+    const dataSize = dataUrlByteSize(raw);
+    return Number.isFinite(dataSize) && dataSize <= MAX_COVER_IMAGE_BYTES ? raw : '';
+  }
 
   try {
     const parsed = new URL(raw, window.location.origin);
@@ -184,6 +188,26 @@ function sanitizeCoverImage(value) {
     // Invalid URL
   }
   return '';
+}
+
+function dataUrlByteSize(dataUrl) {
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) return Infinity;
+
+  const metadata = dataUrl.slice(5, commaIndex).toLowerCase();
+  const payload = dataUrl.slice(commaIndex + 1);
+  if (metadata.includes(';base64')) {
+    const normalized = payload.replace(/\s/g, '');
+    if (!normalized) return 0;
+    const padding = normalized.endsWith('==') ? 2 : (normalized.endsWith('=') ? 1 : 0);
+    return Math.floor((normalized.length * 3) / 4) - padding;
+  }
+
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).length;
+  } catch (_) {
+    return Infinity;
+  }
 }
 
 function normalizeIsbn(isbn) {
@@ -277,6 +301,12 @@ bookForm.addEventListener('submit', async (e) => {
   });
   if (!valid) return;
 
+  const coverImage = sanitizeCoverImage(fCoverImage.value);
+  if (fCoverImage.value.trim() && !coverImage) {
+    showStatus('Cover image must be a valid image URL or uploaded image under 2MB.', 'error');
+    return;
+  }
+
   const payload = {
     title: fTitle.value.trim(),
     author: fAuthor.value.trim(),
@@ -284,7 +314,7 @@ bookForm.addEventListener('submit', async (e) => {
     year: Number(fYear.value),
     isbn: fIsbn.value.trim(),
     description: fDesc.value.trim(),
-    coverImage: sanitizeCoverImage(fCoverImage.value),
+    coverImage,
     available: Number(fAvail.value)
   };
 
@@ -358,6 +388,11 @@ fCoverFile.addEventListener('change', () => {
   if (!file) return;
   if (!file.type.startsWith('image/')) {
     showStatus('Please select a valid image file.', 'error');
+    fCoverFile.value = '';
+    return;
+  }
+  if (file.size > MAX_COVER_IMAGE_BYTES) {
+    showStatus('Image file is too large. Please choose an image under 2MB.', 'error');
     fCoverFile.value = '';
     return;
   }

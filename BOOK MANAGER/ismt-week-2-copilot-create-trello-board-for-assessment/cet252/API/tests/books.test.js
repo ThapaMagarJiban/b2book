@@ -152,6 +152,33 @@ describe('POST /api/books', () => {
     expect(res.body.data.cover_image).toBe('https://example.com/cover.jpg');
   });
 
+  it('stores cover image when a valid data URL is provided', async () => {
+    const res = await request(app).post('/api/books').send({
+      title: 'Cover Data Book',
+      author: 'Cover Data Author',
+      genre: 'Drama',
+      year: 2025,
+      isbn: '978-0-000-00101-9',
+      coverImage: 'data:image/png;base64,AAAA'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.cover_image).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('stores null for oversized data URLs', async () => {
+    const oversizedPayload = 'A'.repeat(Math.ceil((2 * 1024 * 1024 * 4) / 3) + 4);
+    const res = await request(app).post('/api/books').send({
+      title: 'Oversized Cover Book',
+      author: 'Oversized Cover Author',
+      genre: 'Drama',
+      year: 2025,
+      isbn: '978-0-000-00102-6',
+      coverImage: `data:image/png;base64,${oversizedPayload}`
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.cover_image).toBeNull();
+  });
+
   it('returns 400 when required fields are missing', async () => {
     const res = await request(app).post('/api/books').send({ title: 'Incomplete' });
     expect(res.statusCode).toBe(400);

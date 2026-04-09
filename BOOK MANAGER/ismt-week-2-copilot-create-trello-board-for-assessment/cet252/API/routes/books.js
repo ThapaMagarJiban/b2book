@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/database');
+const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
 
 function sanitizeCoverImage(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
-  if (raw.startsWith('data:image/')) return raw;
+  if (raw.startsWith('data:image/')) {
+    const dataSize = dataUrlByteSize(raw);
+    return Number.isFinite(dataSize) && dataSize <= MAX_COVER_IMAGE_BYTES ? raw : null;
+  }
 
   try {
     const parsed = new URL(raw);
@@ -16,6 +20,26 @@ function sanitizeCoverImage(value) {
     return null;
   }
   return null;
+}
+
+function dataUrlByteSize(dataUrl) {
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) return Infinity;
+
+  const metadata = dataUrl.slice(5, commaIndex).toLowerCase();
+  const payload = dataUrl.slice(commaIndex + 1);
+  if (metadata.includes(';base64')) {
+    const normalized = payload.replace(/\s/g, '');
+    if (!normalized) return 0;
+    const padding = normalized.endsWith('==') ? 2 : (normalized.endsWith('=') ? 1 : 0);
+    return Math.floor((normalized.length * 3) / 4) - padding;
+  }
+
+  try {
+    return Buffer.byteLength(decodeURIComponent(payload), 'utf8');
+  } catch (_) {
+    return Infinity;
+  }
 }
 
 /**
