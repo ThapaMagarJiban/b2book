@@ -58,7 +58,26 @@ function normalizeIsbn(isbn) {
   return String(isbn || '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
+function sanitizeCoverImage(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('data:image/')) return raw;
+
+  try {
+    const parsed = new URL(raw, 'https://example.com');
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch (_) {
+    // Invalid URL
+  }
+  return '';
+}
+
 function bookCoverUrl(book) {
+  const customCover = sanitizeCoverImage(book?.cover_image ?? book?.coverImage);
+  if (customCover) return customCover;
+
   const isbn = normalizeIsbn(book?.isbn);
   if (!isbn) return BOOK_COVER_FALLBACK;
   return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-M.jpg?default=false`;
@@ -145,6 +164,12 @@ describe('normalizeIsbn', () => {
 });
 
 describe('bookCoverUrl', () => {
+  it('returns custom cover url when valid cover image is provided', () => {
+    expect(bookCoverUrl({ coverImage: 'https://example.com/my-cover.png', isbn: '978-0-261-10221-7' })).toBe(
+      'https://example.com/my-cover.png'
+    );
+  });
+
   it('returns OpenLibrary URL when isbn exists', () => {
     expect(bookCoverUrl({ isbn: '978-0-261-10221-7' })).toBe(
       'https://covers.openlibrary.org/b/isbn/9780261102217-M.jpg?default=false'

@@ -19,6 +19,7 @@ jest.mock('../db/database', () => {
       year INTEGER NOT NULL,
       isbn TEXT UNIQUE NOT NULL,
       description TEXT,
+      cover_image TEXT,
       available INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -138,6 +139,19 @@ describe('POST /api/books', () => {
     expect(res.body.data.id).toBeDefined();
   });
 
+  it('stores cover image when a valid URL is provided', async () => {
+    const res = await request(app).post('/api/books').send({
+      title: 'Cover URL Book',
+      author: 'Cover Author',
+      genre: 'Drama',
+      year: 2024,
+      isbn: '978-0-000-00100-2',
+      coverImage: 'https://example.com/cover.jpg'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.cover_image).toBe('https://example.com/cover.jpg');
+  });
+
   it('returns 400 when required fields are missing', async () => {
     const res = await request(app).post('/api/books').send({ title: 'Incomplete' });
     expect(res.statusCode).toBe(400);
@@ -168,6 +182,14 @@ describe('PUT /api/books/:id', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.title).toBe('Updated Title');
     expect(res.body.data.available).toBe(0);
+  });
+
+  it('updates cover image to null for invalid values', async () => {
+    const res = await request(app)
+      .put('/api/books/1')
+      .send({ coverImage: 'javascript:alert(1)' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data.cover_image).toBeNull();
   });
 
   it('returns 404 for a non-existent id', async () => {

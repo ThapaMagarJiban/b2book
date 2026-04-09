@@ -27,6 +27,8 @@ const fGenre       = document.getElementById('fGenre');
 const fYear        = document.getElementById('fYear');
 const fIsbn        = document.getElementById('fIsbn');
 const fDesc        = document.getElementById('fDescription');
+const fCoverImage  = document.getElementById('fCoverImage');
+const fCoverFile   = document.getElementById('fCoverFile');
 const fAvail       = document.getElementById('fAvailable');
 const saveBtn      = document.getElementById('saveBtn');
 const cancelBtn    = document.getElementById('cancelBtn');
@@ -108,7 +110,7 @@ function renderBooks(books) {
         <img
           class="book-cover"
           src="${BOOK_COVER_FALLBACK}"
-          data-cover-url="${bookCoverUrl(book)}"
+          data-cover-url="${escHtml(bookCoverUrl(book))}"
           alt="Cover of ${escHtml(book.title)}"
           loading="lazy"
         />
@@ -160,9 +162,28 @@ function hydrateBookCover(img) {
 }
 
 function bookCoverUrl(book) {
+  const customCover = sanitizeCoverImage(book?.cover_image ?? book?.coverImage);
+  if (customCover) return customCover;
+
   const isbn = normalizeIsbn(book?.isbn);
   if (!isbn) return BOOK_COVER_FALLBACK;
   return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-M.jpg?default=false`;
+}
+
+function sanitizeCoverImage(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('data:image/')) return raw;
+
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch (_) {
+    // Invalid URL
+  }
+  return '';
 }
 
 function normalizeIsbn(isbn) {
@@ -192,6 +213,8 @@ function openAddModal() {
   modalTitle.textContent = 'Add New Book';
   bookForm.reset();
   bookIdField.value = '';
+  setFormReadOnly(false);
+  saveBtn.classList.remove('hidden');
   openModal(modal);
 }
 
@@ -206,7 +229,11 @@ async function openEditModal(id) {
     fYear.value   = data.year;
     fIsbn.value   = data.isbn;
     fDesc.value   = data.description || '';
+    fCoverImage.value = data.cover_image || '';
+    fCoverFile.value = '';
     fAvail.value  = String(data.available);
+    setFormReadOnly(false);
+    saveBtn.classList.remove('hidden');
     openModal(modal);
   } catch (e) {
     showStatus('Could not load book details: ' + e.message, 'error');
@@ -224,7 +251,10 @@ async function openViewModal(id) {
     fYear.value = data.year;
     fIsbn.value = data.isbn;
     fDesc.value = data.description || '';
+    fCoverImage.value = data.cover_image || '';
+    fCoverFile.value = '';
     fAvail.value = String(data.available);
+    setFormReadOnly(true);
     saveBtn.classList.add('hidden');
     openModal(modal);
   } catch (e) {
@@ -254,6 +284,7 @@ bookForm.addEventListener('submit', async (e) => {
     year: Number(fYear.value),
     isbn: fIsbn.value.trim(),
     description: fDesc.value.trim(),
+    coverImage: sanitizeCoverImage(fCoverImage.value),
     available: Number(fAvail.value)
   };
 
@@ -307,9 +338,40 @@ function openModal(m) { m.classList.remove('hidden'); }
 function closeModal(m) {
   m.classList.add('hidden');
   if (m === modal) {
+    setFormReadOnly(false);
     saveBtn.classList.remove('hidden');
   }
 }
+
+function setFormReadOnly(isReadOnly) {
+  [fTitle, fAuthor, fGenre, fYear, fIsbn, fDesc, fCoverImage].forEach((field) => {
+    field.readOnly = isReadOnly;
+  });
+  [fAvail, fCoverFile].forEach((field) => {
+    field.disabled = isReadOnly;
+  });
+  saveBtn.disabled = isReadOnly;
+}
+
+fCoverFile.addEventListener('change', () => {
+  const file = fCoverFile.files && fCoverFile.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showStatus('Please select a valid image file.', 'error');
+    fCoverFile.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = String(reader.result || '');
+    fCoverImage.value = sanitizeCoverImage(result);
+  };
+  reader.onerror = () => {
+    showStatus('Could not read selected image file.', 'error');
+  };
+  reader.readAsDataURL(file);
+});
 
 // Close buttons
 modalClose.addEventListener('click', () => closeModal(modal));

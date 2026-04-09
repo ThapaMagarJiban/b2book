@@ -38,10 +38,17 @@ function initDb() {
       year INTEGER NOT NULL,
       isbn TEXT UNIQUE NOT NULL,
       description TEXT,
+      cover_image TEXT,
       available INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  const columns = database.prepare("PRAGMA table_info(books)").all();
+  const hasCoverImage = columns.some((column) => column.name === 'cover_image');
+  if (!hasCoverImage) {
+    database.exec('ALTER TABLE books ADD COLUMN cover_image TEXT');
+  }
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS categories (
