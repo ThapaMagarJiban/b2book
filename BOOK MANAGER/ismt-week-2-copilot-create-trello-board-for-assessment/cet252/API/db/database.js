@@ -1,4 +1,4 @@
-const { DatabaseSync } = require('node:sqlite');
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
@@ -9,14 +9,14 @@ let db;
 
 /**
  * Get or create the database connection.
- * @returns {DatabaseSync} SQLite database instance
+ * @returns {Database.Database} SQLite database instance
  */
 function getDb() {
   if (!db) {
     const resolvedPath = fs.existsSync(DB_PATH)
       ? DB_PATH
       : (fs.existsSync(LEGACY_DB_PATH) ? LEGACY_DB_PATH : DB_PATH);
-    db = new DatabaseSync(resolvedPath);
+    db = new Database(resolvedPath);
     db.exec('PRAGMA journal_mode = WAL');
     db.exec('PRAGMA foreign_keys = ON');
   }

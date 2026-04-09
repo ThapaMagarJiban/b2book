@@ -1,10 +1,10 @@
 # Book Manager – REST API
 
-A Node.js + Express REST API for managing a book manager, backed by SQLite via Node's built-in `node:sqlite` module.
+A Node.js + Express REST API for managing a book manager, backed by SQLite using `better-sqlite3`.
 
 ## Prerequisites
 
-- **Node.js 22.5.0 or later** (built-in `node:sqlite` is required)
+- **Node.js 20.10.0 LTS or later**
 - npm
 
 ## Getting Started
@@ -122,7 +122,7 @@ Content-Type: application/json
 API/
 ├── server.js           # Express app entry point
 ├── db/
-│   ├── database.js     # Database connection & init (node:sqlite)
+│   ├── database.js     # Database connection & init (better-sqlite3)
 │   └── seed.js         # Database seeding script
 ├── routes/
 │   └── books.js        # /api/books router + apiDoc comments
@@ -137,7 +137,13 @@ API/
 
 ## Technical Notes
 
-- Uses Node.js built-in `node:sqlite` (available in Node 22.5+) – no native compilation required
+- Uses `better-sqlite3` for SQLite support compatible with Node 20.10.0 LTS
 - All endpoints return JSON
 - CORS is enabled for cross-origin client requests
 - Generated API docs are written to `../APIDOC` and served at `/docs` (after running `npm run build:docs`)
+
+## Git / SCM Workflow
+
+- Use feature branches for each task (for example: `feature/<short-name>`).
+- Keep focused, meaningful commits mapped to each feature/fix.
+- Merge feature branches through pull requests for traceable review history.

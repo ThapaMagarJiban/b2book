@@ -5,8 +5,8 @@ process.env.NODE_ENV = 'test';
 
 // Monkey-patch: replace database module with a test in-memory db
 jest.mock('../db/database', () => {
-  const { DatabaseSync } = require('node:sqlite');
-  const db = new DatabaseSync(':memory:');
+  const Database = require('better-sqlite3');
+  const db = new Database(':memory:');
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
 
