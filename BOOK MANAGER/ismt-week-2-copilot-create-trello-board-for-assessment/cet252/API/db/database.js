@@ -1,6 +1,18 @@
-const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+
+let Database;
+try {
+  Database = require('better-sqlite3');
+} catch (error) {
+  if (error && error.code === 'MODULE_NOT_FOUND' && error.message.includes('better-sqlite3')) {
+    throw new Error(
+      'Missing dependency "better-sqlite3". Run "npm install" in cet252/API, then run "npm run seed" again.',
+      { cause: error }
+    );
+  }
+  throw error;
+}
 
 const DB_PATH = path.join(__dirname, 'books.db');
 const LEGACY_DB_PATH = path.join(__dirname, 'library.db');

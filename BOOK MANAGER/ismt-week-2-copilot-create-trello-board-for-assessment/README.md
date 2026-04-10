@@ -6,7 +6,7 @@ A full-stack Book Manager prototype built with **Node.js**, **Express**, **SQLit
 
 ```
 cet252/
-├── API/       # REST API (Node.js + Express + node:sqlite)
+├── API/       # REST API (Node.js + Express + better-sqlite3)
 ├── CLIENT/    # Vanilla JS web client (HTML/CSS/JS)
 └── APIDOC/    # Generated API docs (open APIDOC/index.html)
 ```
