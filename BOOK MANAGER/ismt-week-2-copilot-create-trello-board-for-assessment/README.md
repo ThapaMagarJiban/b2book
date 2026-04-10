@@ -48,3 +48,7 @@ See each folder's `README.md` for full details.
 ## Design Deliverable
 
 - Low-fidelity wireframes (initial designs): [`LOW_FIDELITY_WIREFRAMES.md`](./LOW_FIDELITY_WIREFRAMES.md)
+
+## Assignment Support
+
+- Git/SCM marks-focused Nepali runbook: [`GIT_SCM_ASSIGNMENT_RUNBOOK_NP.md`](./GIT_SCM_ASSIGNMENT_RUNBOOK_NP.md)
