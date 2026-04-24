@@ -6,7 +6,7 @@ A full-stack Book Manager prototype built with **Node.js**, **Express**, **SQLit
 
 ```
 cet252/
-├── API/       # REST API (Node.js + Express + node:sqlite)
+├── API/       # REST API (Node.js + Express + better-sqlite3)
 ├── CLIENT/    # Vanilla JS web client (HTML/CSS/JS)
 └── APIDOC/    # Generated API docs (open APIDOC/index.html)
 ```
@@ -48,3 +48,7 @@ See each folder's `README.md` for full details.
 ## Design Deliverable
 
 - Low-fidelity wireframes (initial designs): [`LOW_FIDELITY_WIREFRAMES.md`](./LOW_FIDELITY_WIREFRAMES.md)
+
+## Assignment Support
+
+- Git/SCM marks-focused Nepali runbook: [`GIT_SCM_ASSIGNMENT_RUNBOOK_NP.md`](./GIT_SCM_ASSIGNMENT_RUNBOOK_NP.md)

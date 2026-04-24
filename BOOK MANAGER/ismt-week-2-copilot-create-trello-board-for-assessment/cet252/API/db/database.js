@@ -1,6 +1,18 @@
-const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
+
+let Database;
+try {
+  Database = require('better-sqlite3');
+} catch (error) {
+  if (error && error.code === 'MODULE_NOT_FOUND' && error.message.includes('better-sqlite3')) {
+    throw new Error(
+      'Missing dependency "better-sqlite3". Run "npm install" in cet252/API, then run "npm run seed" again.',
+      { cause: error }
+    );
+  }
+  throw error;
+}
 
 const DB_PATH = path.join(__dirname, 'books.db');
 const LEGACY_DB_PATH = path.join(__dirname, 'library.db');
@@ -9,14 +21,14 @@ let db;
 
 /**
  * Get or create the database connection.
- * @returns {DatabaseSync} SQLite database instance
+ * @returns {Database.Database} SQLite database instance
  */
 function getDb() {
   if (!db) {
     const resolvedPath = fs.existsSync(DB_PATH)
       ? DB_PATH
       : (fs.existsSync(LEGACY_DB_PATH) ? LEGACY_DB_PATH : DB_PATH);
-    db = new DatabaseSync(resolvedPath);
+    db = new Database(resolvedPath);
     db.exec('PRAGMA journal_mode = WAL');
     db.exec('PRAGMA foreign_keys = ON');
   }
@@ -38,10 +50,17 @@ function initDb() {
       year INTEGER NOT NULL,
       isbn TEXT UNIQUE NOT NULL,
       description TEXT,
+      cover_image TEXT,
       available INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  const columns = database.prepare("PRAGMA table_info(books)").all();
+  const hasCoverImage = columns.some((column) => column.name === 'cover_image');
+  if (!hasCoverImage) {
+    database.exec('ALTER TABLE books ADD COLUMN cover_image TEXT');
+  }
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS categories (

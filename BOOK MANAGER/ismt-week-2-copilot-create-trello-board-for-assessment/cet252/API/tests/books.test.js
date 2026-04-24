@@ -5,8 +5,8 @@ process.env.NODE_ENV = 'test';
 
 // Monkey-patch: replace database module with a test in-memory db
 jest.mock('../db/database', () => {
-  const { DatabaseSync } = require('node:sqlite');
-  const db = new DatabaseSync(':memory:');
+  const Database = require('better-sqlite3');
+  const db = new Database(':memory:');
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
 
@@ -19,6 +19,7 @@ jest.mock('../db/database', () => {
       year INTEGER NOT NULL,
       isbn TEXT UNIQUE NOT NULL,
       description TEXT,
+      cover_image TEXT,
       available INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -138,6 +139,46 @@ describe('POST /api/books', () => {
     expect(res.body.data.id).toBeDefined();
   });
 
+  it('stores cover image when a valid URL is provided', async () => {
+    const res = await request(app).post('/api/books').send({
+      title: 'Cover URL Book',
+      author: 'Cover Author',
+      genre: 'Drama',
+      year: 2024,
+      isbn: '978-0-000-00100-2',
+      coverImage: 'https://example.com/cover.jpg'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.cover_image).toBe('https://example.com/cover.jpg');
+  });
+
+  it('stores cover image when a valid data URL is provided', async () => {
+    const res = await request(app).post('/api/books').send({
+      title: 'Cover Data Book',
+      author: 'Cover Data Author',
+      genre: 'Drama',
+      year: 2025,
+      isbn: '978-0-000-00101-9',
+      coverImage: 'data:image/png;base64,AAAA'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.cover_image).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('stores null for oversized data URLs', async () => {
+    const oversizedPayload = 'A'.repeat(Math.ceil((2 * 1024 * 1024 * 4) / 3) + 4);
+    const res = await request(app).post('/api/books').send({
+      title: 'Oversized Cover Book',
+      author: 'Oversized Cover Author',
+      genre: 'Drama',
+      year: 2025,
+      isbn: '978-0-000-00102-6',
+      coverImage: `data:image/png;base64,${oversizedPayload}`
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.cover_image).toBeNull();
+  });
+
   it('returns 400 when required fields are missing', async () => {
     const res = await request(app).post('/api/books').send({ title: 'Incomplete' });
     expect(res.statusCode).toBe(400);
@@ -168,6 +209,14 @@ describe('PUT /api/books/:id', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.title).toBe('Updated Title');
     expect(res.body.data.available).toBe(0);
+  });
+
+  it('updates cover image to null for invalid values', async () => {
+    const res = await request(app)
+      .put('/api/books/1')
+      .send({ coverImage: 'javascript:alert(1)' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data.cover_image).toBeNull();
   });
 
   it('returns 404 for a non-existent id', async () => {

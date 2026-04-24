@@ -1,6 +1,46 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/database');
+const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
+
+function sanitizeCoverImage(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('data:image/')) {
+    const dataSize = dataUrlByteSize(raw);
+    return Number.isFinite(dataSize) && dataSize <= MAX_COVER_IMAGE_BYTES ? raw : null;
+  }
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+function dataUrlByteSize(dataUrl) {
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) return Infinity;
+
+  const metadata = dataUrl.slice(5, commaIndex).toLowerCase();
+  const payload = dataUrl.slice(commaIndex + 1);
+  if (metadata.includes(';base64')) {
+    const normalized = payload.replace(/\s/g, '');
+    if (!normalized) return 0;
+    const padding = normalized.endsWith('==') ? 2 : (normalized.endsWith('=') ? 1 : 0);
+    return Math.floor((normalized.length * 3) / 4) - padding;
+  }
+
+  try {
+    return Buffer.byteLength(decodeURIComponent(payload), 'utf8');
+  } catch (_) {
+    return Infinity;
+  }
+}
 
 /**
  * @api {get} /api/books Get all books
@@ -132,6 +172,7 @@ router.get('/:id', (req, res) => {
  * @apiBody {Number} year Publication year (required)
  * @apiBody {String} isbn ISBN number (required, must be unique)
  * @apiBody {String} [description] Book description
+ * @apiBody {String} [coverImage] Cover image URL or data image
  * @apiBody {Number} [available=1] Availability (1 = available, 0 = not available)
  *
  * @apiSuccess (201) {Boolean} success Request status
@@ -144,7 +185,7 @@ router.get('/:id', (req, res) => {
  */
 router.post('/', (req, res) => {
   const db = getDb();
-  const { title, author, genre, year, isbn, description, available } = req.body;
+  const { title, author, genre, year, isbn, description, coverImage, available } = req.body;
 
   if (!title || !author || !genre || !year || !isbn) {
     return res.status(400).json({
@@ -155,8 +196,8 @@ router.post('/', (req, res) => {
 
   try {
     const stmt = db.prepare(`
-      INSERT INTO books (title, author, genre, year, isbn, description, available)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO books (title, author, genre, year, isbn, description, cover_image, available)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       title,
@@ -165,6 +206,7 @@ router.post('/', (req, res) => {
       Number(year),
       isbn,
       description || null,
+      sanitizeCoverImage(coverImage),
       available !== undefined ? Number(available) : 1
     );
     const newBook = db.prepare('SELECT * FROM books WHERE id = ?').get(result.lastInsertRowid);
@@ -191,6 +233,7 @@ router.post('/', (req, res) => {
  * @apiBody {Number} [year] Publication year
  * @apiBody {String} [isbn] ISBN number
  * @apiBody {String} [description] Book description
+ * @apiBody {String} [coverImage] Cover image URL or data image
  * @apiBody {Number} [available] Availability (1/0)
  *
  * @apiSuccess {Boolean} success Request status
@@ -201,7 +244,7 @@ router.post('/', (req, res) => {
  */
 router.put('/:id', (req, res) => {
   const db = getDb();
-  const { title, author, genre, year, isbn, description, available } = req.body;
+  const { title, author, genre, year, isbn, description, coverImage, available } = req.body;
 
   const existing = db.prepare('SELECT * FROM books WHERE id = ?').get(req.params.id);
   if (!existing) {
@@ -217,6 +260,7 @@ router.put('/:id', (req, res) => {
   if (year !== undefined) { fields.push('year = ?'); values.push(Number(year)); }
   if (isbn !== undefined) { fields.push('isbn = ?'); values.push(isbn); }
   if (description !== undefined) { fields.push('description = ?'); values.push(description); }
+  if (coverImage !== undefined) { fields.push('cover_image = ?'); values.push(sanitizeCoverImage(coverImage)); }
   if (available !== undefined) { fields.push('available = ?'); values.push(Number(available)); }
 
   if (fields.length === 0) {

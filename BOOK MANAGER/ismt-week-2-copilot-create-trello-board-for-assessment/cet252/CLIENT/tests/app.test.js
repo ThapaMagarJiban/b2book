@@ -53,12 +53,56 @@ function availBadgeLabel(available) {
 
 const BOOK_COVER_FALLBACK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="72" height="104" viewBox="0 0 72 104"><rect width="72" height="104" rx="8" fill="#f0f4f8"/><rect x="8" y="12" width="56" height="80" rx="4" fill="#e2e8f0"/><text x="36" y="56" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#4a5568">No Cover</text></svg>';
 const BOOK_COVER_FALLBACK = `data:image/svg+xml,${encodeURIComponent(BOOK_COVER_FALLBACK_SVG)}`;
+const TEST_ORIGIN = 'http://localhost:8080';
+const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
+
+function dataUrlByteSize(dataUrl) {
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) return Infinity;
+
+  const metadata = dataUrl.slice(5, commaIndex).toLowerCase();
+  const payload = dataUrl.slice(commaIndex + 1);
+  if (metadata.includes(';base64')) {
+    const normalized = payload.replace(/\s/g, '');
+    if (!normalized) return 0;
+    const padding = normalized.endsWith('==') ? 2 : (normalized.endsWith('=') ? 1 : 0);
+    return Math.floor((normalized.length * 3) / 4) - padding;
+  }
+
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).length;
+  } catch (_) {
+    return Infinity;
+  }
+}
 
 function normalizeIsbn(isbn) {
   return String(isbn || '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
+function sanitizeCoverImage(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('data:image/')) {
+    const dataSize = dataUrlByteSize(raw);
+    return Number.isFinite(dataSize) && dataSize <= MAX_COVER_IMAGE_BYTES ? raw : '';
+  }
+
+  try {
+    const parsed = new URL(raw, TEST_ORIGIN);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch (_) {
+    // Invalid URL
+  }
+  return '';
+}
+
 function bookCoverUrl(book) {
+  const customCover = sanitizeCoverImage(book?.cover_image ?? book?.coverImage);
+  if (customCover) return customCover;
+
   const isbn = normalizeIsbn(book?.isbn);
   if (!isbn) return BOOK_COVER_FALLBACK;
   return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-M.jpg?default=false`;
@@ -145,6 +189,18 @@ describe('normalizeIsbn', () => {
 });
 
 describe('bookCoverUrl', () => {
+  it('returns custom cover from API snake_case property', () => {
+    expect(bookCoverUrl({ cover_image: 'https://example.com/my-cover-from-api.png' })).toBe(
+      'https://example.com/my-cover-from-api.png'
+    );
+  });
+
+  it('returns custom cover url when valid cover image is provided', () => {
+    expect(bookCoverUrl({ coverImage: 'https://example.com/my-cover.png', isbn: '978-0-261-10221-7' })).toBe(
+      'https://example.com/my-cover.png'
+    );
+  });
+
   it('returns OpenLibrary URL when isbn exists', () => {
     expect(bookCoverUrl({ isbn: '978-0-261-10221-7' })).toBe(
       'https://covers.openlibrary.org/b/isbn/9780261102217-M.jpg?default=false'
@@ -153,5 +209,24 @@ describe('bookCoverUrl', () => {
 
   it('returns local fallback data-url when isbn is missing', () => {
     expect(bookCoverUrl({ isbn: '' })).toBe(BOOK_COVER_FALLBACK);
+  });
+});
+
+describe('sanitizeCoverImage', () => {
+  it('rejects javascript protocol', () => {
+    expect(sanitizeCoverImage('javascript:alert(1)')).toBe('');
+  });
+
+  it('rejects malformed URLs', () => {
+    expect(sanitizeCoverImage('http://[invalid-url')).toBe('');
+  });
+
+  it('accepts valid image data URLs', () => {
+    expect(sanitizeCoverImage('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('rejects oversized data URLs', () => {
+    const oversizedPayload = 'A'.repeat(Math.ceil((MAX_COVER_IMAGE_BYTES * 4) / 3) + 4);
+    expect(sanitizeCoverImage(`data:image/png;base64,${oversizedPayload}`)).toBe('');
   });
 });
